@@ -168,6 +168,27 @@ const browser = await chromium.launch(opcionesNavegador())
   check('Enlace compartido: sin errores de consola', errores.length === 0, errores.join(' | '))
   await page.close()
 }
+{
+  // v5: el nombre de la tanda en la lista y en la búsqueda. Las tandas sin nombre siguen siendo "Tanda N".
+  const est = nuevoEstado()
+  est.tandas[3].nombre = 'Tanda de la Oficina'
+  const { page, errores } = await nuevaPagina(browser, { est, conectado: false })
+  const titulos = async () => (await page.locator('.tarjeta h2').allInnerTexts()).join()
+  await page.goto(BASE + '#/tandas')
+  await page.waitForSelector('.tarjeta', { timeout: 15000 }).catch(() => {})
+  await page.waitForFunction(() => /Tanda de la Oficina/.test(document.body.innerText), null, { timeout: 8000 }).catch(() => {})
+  check('Nombre (lista): la tarjeta muestra el nombre y, debajo, su número', (await titulos()) === 'Tanda 5,Tanda de la Oficina,Tanda 2,Tanda 1' && (await page.locator('.tarjeta-numero').allInnerTexts()).join() === 'Tanda 3', await titulos())
+  await page.locator('#buscar-tandas').fill('oficina')
+  await page.waitForTimeout(150)
+  check('Nombre (lista): se encuentra buscando el nombre, sin mayúsculas', (await titulos()) === 'Tanda de la Oficina', await titulos())
+  await page.locator('#buscar-tandas').fill('#3')
+  await page.waitForTimeout(150)
+  check('Nombre (lista): también se encuentra por su número', (await titulos()) === 'Tanda de la Oficina', await titulos())
+  const pedidas = est.llamadas.filter((l) => l.endsWith('get_nombre')).length
+  check('Nombre (lista): el nombre se pide una sola vez por tanda', pedidas > 0 && pedidas <= 5, `get_nombre: ${pedidas}`)
+  check('Nombre (lista): sin errores de consola', errores.length === 0, errores.join(' | '))
+  await page.close()
+}
 
 // ---------------------------------------------------------------- 2. Crear tanda (UX: 3 preguntas)
 {
